@@ -7,6 +7,7 @@ document.getElementById('startButton').addEventListener('click', () => {
     const populationSize = parseInt(document.getElementById('populationSize').value);
     const mutationRate = parseFloat(document.getElementById('mutationRate').value);
     const elitismCount = parseInt(document.getElementById('elitism').value);
+    const tournamentSize = parseInt(document.getElementById('tournamentSize').value);
 
     // Clear previous canvas
     document.getElementById('canvas').innerHTML = "";
@@ -64,8 +65,7 @@ document.getElementById('startButton').addEventListener('click', () => {
                 dna: dna || createDNA(),
                 completed: false,
                 crashed: false,
-                fitness: 0,
-                geneIndex: 0
+                fitness: 0
             };
         }
 
@@ -93,8 +93,12 @@ document.getElementById('startButton').addEventListener('click', () => {
             }
 
             if (!r.completed && !r.crashed) {
-                r.acc.add(r.dna[r.geneIndex]);
-                r.geneIndex++;
+                const geneIndex = lifeSpan - count; // current gene
+
+                if (geneIndex < r.dna.length) {
+                    r.acc.add(r.dna[geneIndex]); // apply force
+                }
+
                 r.vel.add(r.acc);
                 r.pos.add(r.vel);
                 r.acc.mult(0);
@@ -131,23 +135,17 @@ document.getElementById('startButton').addEventListener('click', () => {
             // Sort population by fitness (descending)
             population.sort((a, b) => b.fitness - a.fitness);
 
-            // Build mating pool
-            population.forEach(r => {
-                const n = r.fitness * 100;
-                for (let i = 0; i < n; i++) matingPool.push(r);
-            });
-
             // Elitism: carry the top N rockets
             const newPopulation = [];
-            for (let e = 0; e < elitismCount; e++) {
-                const eliteDNA = population[e].dna.slice(); // copy genes
+            for (let elite = 0; elite < elitismCount; elite++) {
+                const eliteDNA = population[elite].dna.slice(); // copy genes
                 newPopulation.push(createRocket(eliteDNA));
             }
 
             // Generate the rest of the population
             for (let i = elitismCount; i < populationSize; i++) {
-                const parentA = p.random(matingPool).dna;
-                const parentB = p.random(matingPool).dna;
+                const parentA = tournamentSelection();
+                const parentB = tournamentSelection();
                 const childDNA = crossover(parentA, parentB);
                 mutate(childDNA);
                 newPopulation[i] = createRocket(childDNA);
@@ -156,12 +154,22 @@ document.getElementById('startButton').addEventListener('click', () => {
             population = newPopulation;
         }
 
-        function crossover(a,b){
+        function tournamentSelection() {
+            const Participants = [];
+            for (let i = 0; i < tournamentSize; i++) {
+                const RandomIndex = Math.floor(Math.random() * population.length);
+                Participants.push(population[RandomIndex]);
+            }
+            Participants.sort((a, b) => b.fitness - a.fitness);
+            return Participants[0].dna;
+        }
+
+        function crossover(a, b) {
             const mid = Math.floor(p.random(a.length));
             return a.map((gene, i) => i > mid ? a[i]: b[i]);
         }
 
-        function mutate(genes){
+        function mutate(genes) {
             for(let i = 0 ; i < genes.length; i++){
                 if(p.random(1) < mutationRate){
                     genes[i] = p.createVector(p.random(-1, 1), p.random(-1, 1));
@@ -170,7 +178,10 @@ document.getElementById('startButton').addEventListener('click', () => {
             }
         }
 
-        function drawRocket(r){
+        // -----------------
+        // Drawing functions
+        // -----------------
+        function drawRocket(r) {
             p.push();
             p.noStroke();
             p.fill(200, 200, 255, 150);
@@ -181,7 +192,7 @@ document.getElementById('startButton').addEventListener('click', () => {
             p.pop();
         }
 
-        function drawTarget(){
+        function drawTarget() {
             p.noFill();
             p.strokeWeight(2);
             p.stroke(255, 200, 0);
@@ -192,14 +203,14 @@ document.getElementById('startButton').addEventListener('click', () => {
             p.ellipse(target.x, target.y, 20);
         }
 
-        function drawObstacles(){
+        function drawObstacles() {
             p.noStroke();
             p.fill(255, 0, 0);
             p.rect(rx, ry, rw, rh);
             p.rect(rx1, ry1, rw, rh);
         }
 
-        function drawBackground(){
+        function drawBackground() {
             for(let y = 0; y < p.height; y++){
                 let inter = p.map(y, 0, p.height, 0,1);
                 let c = p.lerpColor(p.color(10, 10, 30), p.color(0, 0, 0), inter);
@@ -208,7 +219,7 @@ document.getElementById('startButton').addEventListener('click', () => {
             }
         }
 
-        function drawHUD(){
+        function drawHUD() {
             p.fill(255);
             p.textSize(16);
             p.textAlign(p.LEFT);
@@ -216,7 +227,7 @@ document.getElementById('startButton').addEventListener('click', () => {
             p.text(`Generation: ${generation}`, 10, 45);
         }
 
-        function drawLifeBar(){
+        function drawLifeBar() {
             p.noStroke();
             const fuel = p.map(count, 0, lifeSpan, 0, p.width);
             p.fill(255, 120, 0);
