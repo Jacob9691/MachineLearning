@@ -6,6 +6,7 @@ document.getElementById('startButton').addEventListener('click', () => {
     const maxForce = parseFloat(document.getElementById('maxForce').value);
     const populationSize = parseInt(document.getElementById('populationSize').value);
     const mutationRate = parseFloat(document.getElementById('mutationRate').value);
+    const elitismCount = parseInt(document.getElementById('elitism').value);
 
     // Clear previous canvas
     document.getElementById('canvas').innerHTML = "";
@@ -126,18 +127,32 @@ document.getElementById('startButton').addEventListener('click', () => {
 
         function selection() {
             const matingPool = [];
+
+            // Sort population by fitness (descending)
+            population.sort((a, b) => b.fitness - a.fitness);
+
+            // Build mating pool
             population.forEach(r => {
                 const n = r.fitness * 100;
-                for (let i = 0; i < n ; i++) matingPool.push(r);
+                for (let i = 0; i < n; i++) matingPool.push(r);
             });
+
+            // Elitism: carry the top N rockets
             const newPopulation = [];
-            for (let i = 0; i < populationSize; i++){
+            for (let e = 0; e < elitismCount; e++) {
+                const eliteDNA = population[e].dna.slice(); // copy genes
+                newPopulation.push(createRocket(eliteDNA));
+            }
+
+            // Generate the rest of the population
+            for (let i = elitismCount; i < populationSize; i++) {
                 const parentA = p.random(matingPool).dna;
                 const parentB = p.random(matingPool).dna;
-                const childDNA = crossover(parentA,parentB);
+                const childDNA = crossover(parentA, parentB);
                 mutate(childDNA);
                 newPopulation[i] = createRocket(childDNA);
             }
+
             population = newPopulation;
         }
 
