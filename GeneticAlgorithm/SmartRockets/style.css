@@ -1,17 +1,83 @@
+/* General body styling */
 body {
+    font-family: 'Orbitron', 'Courier New', monospace;
+    background-color: #0a0a1a; /* deep space */
+    color: #ffffff;
     margin: 0;
-    background: #0a0a1a;
-    color: white;
-    font-family: monospace;
+    padding: 2rem;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    height: 100vh;
-    overflow: hidden;
 }
 
-#canvas {
-    border: 2px solid #333;
+/* Container for controls */
+#controls {
+    background: rgba(20, 20, 40, 0.9); /* semi-transparent space panel */
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    max-width: 400px;
+    width: 100%;
+    margin-bottom: 2rem;
+    border: 1px solid #00ffff;
+}
+
+/* Headings */
+#controls h2 {
+    margin-bottom: 1rem;
+    color: #00ffff; /* neon space color */
+    font-weight: bold;
+    text-align: center;
+    text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff;
+}
+
+/* Labels and inputs */
+#controls label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+#controls input {
+    width: 100px;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #00ffff;
+    border-radius: 5px;
+    font-size: 1rem;
+    text-align: right;
+    background-color: #1a1a3d;
+    color: #ffffff;
+}
+
+/* Button */
+#startButton {
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    background-color: #0077ff; /* cosmic blue */
+    color: #ffffff;
+    border: none;
     border-radius: 8px;
-    box-shadow: 0 0 20px rgba(0, 255, 200, 0.3);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 10px #0077ff, 0 0 20px #00ffff;
+    width: 100%;
+}
+
+#startButton:hover {
+    background-color: #00ccff;
+    box-shadow: 0 0 15px #00ccff, 0 0 30px #00ffff;
+}
+
+#startButton:active {
+    background-color: #0055aa;
+    box-shadow: 0 0 5px #00ffff;
+}
+
+/* Canvas */
+#canvas {
+    border: 2px solid #00ffff;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
 }
