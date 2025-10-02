@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genetic Algorithm</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+    
+</head>
+<body>
+    <div class="container">
+        <h1>Genetic Algorithms</h1>
+        <p>
+            A typical genetic algorithm follows these steps:
+        </p>
+
+        <ol>
+            <li>Initialize a population of potential solutions</li>
+            <li>Evaluate their fitness</li>
+            <li>Select parents based on fitness</li>
+            <li>Perform crossover and mutation</li>
+            <li>Repeat the process for several generations</li>
+        </ol>
+
+        <p>
+           <b>Here's the code of the algorithm in action:</b>
+        </p>
+
+        <h2>Genetic Algorithm Settings</h2>
+        <label>Target String: <input type="text" id="targetString" value="To be or not to be."></label><br><br>
+
+        <label>Genes (Character Set):<br>
+        <textarea id="genes" rows="3" cols="80">abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890.,;:!?'"()[]{}-+=*/\|<>@#$%^&`~</textarea>
+        </label><br><br>
+
+        <label>Population Size: <input type="number" id="populationSize" value="1000"></label><br><br>
+
+        <label>Mutation Chance (0-1): <input type="number" step="0.001" id="mutationChance" value="0.01"></label><br><br>
+
+        <label>Max Generations: <input type="number" id="maxGenerations" value="1000"></label><br><br>
+
+        <label>Number of Participants (for selection): <input type="number" id="numberOfParticipants" value="2"></label><br><br>
+
+        <button onclick="runGeneticAlgorithm()">Run Algorithm</button>
+
+        <pre id="output"></pre>
+
+
+        <div id="output" style="white-space: pre-line; font-family: monospace;"></div>
+
+    </div>  
+</body>
+</html>
