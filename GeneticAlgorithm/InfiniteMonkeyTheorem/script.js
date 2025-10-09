@@ -1,5 +1,9 @@
 "use strict";
 
+tf.setBackend('cpu').then(() => {
+    console.log('TF.js backend set to CPU');
+});
+
 function runGeneticAlgorithm() {
     // Read input values from HTML each time
     const TargetString = document.getElementById('targetString').value;
@@ -8,26 +12,54 @@ function runGeneticAlgorithm() {
     const MutationChance = parseFloat(document.getElementById('mutationChance').value);
     const MaxGenerations = parseInt(document.getElementById('maxGenerations').value);
     const NumberOfParticipants = parseInt(document.getElementById('numberOfParticipants').value);
+    const ElitismCount = parseInt(document.getElementById('elitismCount').value);
 
     // Reset output
     document.getElementById('output').textContent = '';
 
     const Population = [];
 
-    function getRandomCharacter() {
-        const RandomGeneIndex = Math.floor(Math.random() * Genes.length);
-        return Genes[RandomGeneIndex];
+    let TargetGenome = [];
+
+    function encodeStringToGenome(str) {
+        const genome = [];
+        for (let i = 0; i < str.length; i++) {
+            const char = str[i];
+            const index = Genes.indexOf(char);
+            const normalizedValue = index / (Genes.length - 1);
+            genome.push(normalizedValue);
+        }
+        return genome;
+    }
+
+    function decodeGenomeToString(genome) {
+        let str = "";
+        for (let i = 0; i < genome.length; i++) {
+            const index = Math.round(genome[i] * (Genes.length - 1));
+            str += Genes[index];
+        }
+        return str;
+    }
+
+    TargetGenome = encodeStringToGenome(TargetString);
+
+    function getRandomGene() {
+        return Math.random();
     }
 
     function createRandomIndividual() {
-        let Chromosome = "";
-        for (let i = 0; i < TargetString.length; i++) {
-            Chromosome += getRandomCharacter();
+        let Chromosome = [];
+
+        for (let i = 0; i < TargetGenome.length; i++) {
+            Chromosome.push(getRandomGene());
         }
-        return {
+
+        const Individual = {
             "Chromosome": Chromosome,
             "FitnessScore": null
         };
+
+        return Individual;
     }
 
     function createRandomPopulation() {
@@ -40,8 +72,11 @@ function runGeneticAlgorithm() {
     function assignFitnessScores() {
         Population.forEach(individual => {
             let fitness = 0;
-            for (let charIndex = 0; charIndex < TargetString.length; charIndex++) {
-                if (individual.Chromosome[charIndex] === TargetString[charIndex]) {
+            for (let i = 0; i < TargetGenome.length; i++) {
+                const targetIndex = Math.round(TargetGenome[i] * (Genes.length - 1));
+                const individualIndex = Math.round(individual.Chromosome[i] * (Genes.length - 1));
+
+                if (targetIndex === individualIndex) {
                     fitness++;
                 }
             }
@@ -51,12 +86,20 @@ function runGeneticAlgorithm() {
     }
 
     function isTargetReached() {
-        return Population[0].Chromosome === TargetString;
+        const decoded = decodeGenomeToString(Population[0].Chromosome);
+        return decoded === TargetString;
     }
 
     function parentSelection() {
         const NewGeneration = [];
-        while (NewGeneration.length < PopulationSize) {
+
+        Population.sort((a, b) => b.FitnessScore - a.FitnessScore);
+        for (let elite = 0; elite < ElitismCount; elite++) {
+            const eliteChild = Population[elite];
+            NewGeneration.push(eliteChild);
+        }
+
+        for (let i = ElitismCount; i < PopulationSize; i++) {
             const ParentA = tournamentSelection();
             const ParentB = tournamentSelection();
             const Child = recombination(ParentA, ParentB);
@@ -67,20 +110,20 @@ function runGeneticAlgorithm() {
     }
 
     function recombination(parentA, parentB) {
-        const CrossoverPoint = Math.floor(Math.random() * TargetString.length);
-        let childString = "";
-        for (let geneIndex = 0; geneIndex < TargetString.length; geneIndex++) {
+        const CrossoverPoint = Math.floor(Math.random() * TargetGenome.length);
+        let childGenome = [];
+        for (let geneIndex = 0; geneIndex < TargetGenome.length; geneIndex++) {
             const useMutation = Math.random() < MutationChance;
             if (useMutation) {
-                childString += getRandomCharacter();
+                childGenome.push(getRandomGene());
             } else {
-                childString += (geneIndex < CrossoverPoint)
+                childGenome.push((geneIndex < CrossoverPoint)
                     ? parentA.Chromosome[geneIndex]
-                    : parentB.Chromosome[geneIndex];
+                    : parentB.Chromosome[geneIndex]);
             }
         }
         return {
-            "Chromosome": childString,
+            "Chromosome": childGenome,
             "FitnessScore": null
         };
     }
@@ -101,14 +144,16 @@ function runGeneticAlgorithm() {
 
     let generation = 1;
     logOutput(`\n--- Generation ${generation} ---`);
-    logOutput(`Best: ${Population[0].Chromosome} (Fitness: ${Population[0].FitnessScore})`);
+    console.log(`${generation} Best Genome: ${Population[0].Chromosome} (Fitness: ${Population[0].FitnessScore})`);
+    logOutput(`Best: ${decodeGenomeToString(Population[0].Chromosome)} (Fitness: ${Population[0].FitnessScore})`);
 
     while (!isTargetReached() && generation < MaxGenerations) {
         parentSelection();
         assignFitnessScores();
         generation++;
         logOutput(`\n--- Generation ${generation} ---`);
-        logOutput(`Best: ${Population[0].Chromosome} (Fitness: ${Population[0].FitnessScore})`);
+        console.log(`${generation} Best Genome: ${Population[0].Chromosome} (Fitness: ${Population[0].FitnessScore})`);
+        logOutput(`Best: ${decodeGenomeToString(Population[0].Chromosome)} (Fitness: ${Population[0].FitnessScore})`);
     }
 
     if (isTargetReached()) {

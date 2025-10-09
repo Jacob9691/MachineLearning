@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genetic Algorithm with Float Encoding</title>
+</head>
+<body>
+    <h1>Neuroevolution (Output in Console)</h1>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script type="module">
+        "use strict";
+
+        const PopulationSize = 50;
+        const MutationChance = 0.1;
+        const MaxGenerations = 100;
+        const ElitismCount = 2;
+
+        const WeightMin = -10;
+        const WeightMax = 10;
+        const WeightRange = WeightMax - WeightMin;
+
+        const AndGateTestData = [
+            { input: [0, 0], output: 0 },
+            { input: [0, 1], output: 0 },
+            { input: [1, 0], output: 0 },
+            { input: [1, 1], output: 1 },
+        ];
+
+        const NandGateTestData = [
+            { input: [0, 0], output: 1 },
+            { input: [0, 1], output: 1 },
+            { input: [1, 0], output: 1 },
+            { input: [1, 1], output: 0 },
+        ];
+
+        const OrGateTestData = [
+            { input: [0, 0], output: 0 },
+            { input: [0, 1], output: 1 },
+            { input: [1, 0], output: 1 },
+            { input: [1, 1], output: 1 },
+        ];
+
+        const NotGateTestData = [
+            { input: [0], output: 1 },
+            { input: [1], output: 0 },
+        ];
+
+        const XorGateTestData = [
+            { input: [0, 0], output: 0 },
+            { input: [0, 1], output: 1 },
+            { input: [1, 0], output: 1 },
+            { input: [1, 1], output: 0 },
+        ];
+
+        const Population = [];
+        const TargetNetwork = createRandomNetwork();
+
+        function encodeNetworkToGenome(network) {
+            const genome = [];
+            const weightsAndBiases = network.getWeights();
+            weightsAndBiases.forEach(tensor => {
+                const values = tensor.dataSync();
+                for (let i = 0; i < values.length; i++) {
+                    const cappedValue = Math.max(WeightMin, Math.min(WeightMax, values[i]));
+                    const normalizedValue = (cappedValue - WeightMin) / WeightRange;
+                    genome.push(normalizedValue);
+                }
+            });
+            return genome;
+        }
+
+        function decodeGenomeToNetwork(genome, neuralNetwork) {
+            const shapes = neuralNetwork.getWeights().map(tensor => {
+                return { shape: tensor.shape, size: tensor.size };
+            });
+
+            const denormalizeWeights = genome.map(gene => gene * WeightRange + WeightMin);
+
+            let index = 0;
+            const newTensors = shapes.map(({ shape, size }) => {
+                const values = denormalizeWeights.slice(index, index + size);
+                index += size;
+                return tf.tensor(values, shape);
+            });
+
+            neuralNetwork.setWeights(newTensors);
+            newTensors.forEach(t => t.dispose());
+        }
+
+        // Added extra layer so XOR gate should work :D
+        function createRandomNetwork(isNotGate = false) {
+            const neuralNetwork = tf.sequential();
+            if (isNotGate) {
+                neuralNetwork.add(tf.layers.dense({ units: 4, inputShape: [1], activation: 'sigmoid' }));   
+            }
+            else {
+                neuralNetwork.add(tf.layers.dense({ units: 4, inputShape: [2], activation: 'sigmoid' }));
+            }
+            
+            neuralNetwork.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
+            return neuralNetwork;
+        }
+
+        function createRandomIndividual() {
+            const neuralNetwork = createRandomNetwork();
+            const genome = encodeNetworkToGenome(neuralNetwork);
+            neuralNetwork.dispose(); // Dispose
+            return { genome, fitness: 0 };
+        }
+
+        function createInitialPopulation() {
+            Population.length = 0;
+            for (let i = 0; i < PopulationSize; i++) {
+                Population.push(createRandomIndividual());
+            }
+        }
+
+        // Modified the fitness function to use dynamic logic gates ;)
+        async function assignFitnessScore(gateTestData, isNotGate = false) {
+            await Promise.all(Population.map(async individual => {
+                let totalDifference = 0;
+
+                const genome = individual.genome;
+                const nn = createRandomNetwork(isNotGate);
+                decodeGenomeToNetwork(genome, nn);
+
+                // Parallelize testing of each input in the selected gate
+                const promises = gateTestData.map(data => {
+                    const inputTensor = tf.tensor2d([data.input]);
+                    return nn.predict(inputTensor).data().then(predictData => {
+                        const output = predictData[0];
+                        totalDifference += Math.abs(data.output - output);
+                        inputTensor.dispose();
+                    });
+                });
+
+                await Promise.all(promises);
+                nn.dispose();
+
+                individual.fitness = 1 / (1 + totalDifference);
+            }));
+
+            Population.sort((a, b) => b.fitness - a.fitness);
+        }
+
+        function isTargetReached() {
+            return Population[0].fitness >= 0.7;
+        }
+
+        function createNewGeneration() {
+            const NewGeneration = [];
+            const Elite = Population.slice(0, ElitismCount);
+            NewGeneration.push(...Elite);
+
+            while (NewGeneration.length < PopulationSize) {
+                const ParentA = tournamentSelection();
+                const ParentB = tournamentSelection();
+                const child = wholeArithmeticRecombination(ParentA, ParentB);
+                NewGeneration.push(child);
+            }
+
+            Population.length = 0;
+            Population.push(...NewGeneration);
+        }
+
+        function lerp(a, b, lambda) {
+            return a * lambda + b * (1 - lambda);
+        }
+
+        function wholeArithmeticRecombination(parentA, parentB) {
+            let childGenome = [];
+            for (let geneIndex = 0; geneIndex < parentA.genome.length; geneIndex++) {
+                const shouldMutate = Math.random() < MutationChance;
+                if (shouldMutate) {
+                    childGenome.push(Math.random());
+                } else {
+                    const lambda = Math.random();
+                    childGenome.push(lerp(parentA.genome[geneIndex], parentB.genome[geneIndex], lambda));
+                }
+            }
+            return { genome: childGenome, fitness: 0 };
+        }
+
+        function tournamentSelection() {
+            const NumParticipants = 4;
+            const Participants = [];
+            for (let i = 0; i < NumParticipants; i++) {
+                const randomIndex = Math.floor(Math.random() * Population.length);
+                Participants.push(Population[randomIndex]);
+            }
+            Participants.sort((a, b) => b.fitness - a.fitness);
+            return Participants[0];
+        }
+
+        // Modified the runEvolution function to use dynamic logic gates ;)
+        async function runEvolution(gateTestData, gateName) {
+            console.log(`Starting genetic algorithm for the ${gateName}...`);
+            const startTime = performance.now();
+            createInitialPopulation();
+
+            let generation = 1;
+            let isCompleted = false;
+
+            let isNotGate = gateName === "NOT gate"
+
+            do {
+                await assignFitnessScore(gateTestData, isNotGate);
+
+                console.log(`Generation: ${generation}, Best Fitness: ${Population[0].fitness.toFixed(4)}`);
+
+                if (isTargetReached()) {
+                    console.log(`Target reached at generation ${generation}!`);
+                    isCompleted = true;
+                    break;
+                }
+
+                createNewGeneration();
+                generation++;
+
+            } while (generation < MaxGenerations);
+
+            if (!isCompleted) {
+                console.log("Max generations reached.");    
+            }
+
+            console.log(`Best individual found for ${gateName}:`, Population[0]);
+
+            const genome = Population[0].genome;
+            const nn = createRandomNetwork(isNotGate);
+            decodeGenomeToNetwork(genome, nn);
+
+            console.log(`\n--- Testing Best Individual For ${gateName} ---`);
+            for (const data of gateTestData) {
+                const inputTensor = tf.tensor2d([data.input]);
+                const predictTensor = nn.predict(inputTensor);
+                const predictData = await predictTensor.data();
+                const output = predictData[0];
+
+                console.log(`${gateName} Input: [${data.input.join(', ')}], Prediction: ${output.toFixed(4)}, Correct Answer: ${data.output}`);
+                inputTensor.dispose();
+                predictTensor.dispose();
+            }
+
+            nn.dispose();
+            const endTime = performance.now();
+            console.log(`\nGenetic algorithm ${gateName} ran for ${(endTime - startTime).toFixed(1)} milliseconds.\n...`);
+        }
+
+        async function runAllGates() {
+            // AND gate
+            await runEvolution(AndGateTestData, "AND gate");
+
+            // XOR gate
+            await runEvolution(XorGateTestData, "XOR gate");
+
+            // NAND gate
+            await runEvolution(NandGateTestData, "NAND gate");
+
+            // OR gate
+            await runEvolution(OrGateTestData, "OR gate");
+
+            // NOT gate
+            await runEvolution(NotGateTestData, "NOT gate");
+        }
+
+        runAllGates();
+
+    </script>
+</body>
+</html>
